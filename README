@@ -1,0 +1,122 @@
+mor
+===
+    .--.
+   /    \
+  ==( )-( )
+  (    ._)
+   |(-=) |
+
+mor(pheus) is tool that simplifies dependency management the right way.
+Some might even say it is a red-pill way of dependency management.
+
+mor searches for requirements.ini file in the current folder, and uses it's content to
+download files.
+
+GOALS
+-----
+* Should work standalone
+* Cross-platform
+* Tiny - .cmd on windows, .sh on *NIX
+
+Section
+-------
+mor uses [sections] of the .ini file to setup targets and subdirectories
+
+Sections in mor are the names of the sub-directories
+
+	[precompiled]
+	libfoo-2.7=https://example.com/awavauatush/libfoo.git
+
+The result of this is the following,
+
+	$ mor precompiled
+	$ ls precompiled
+	libfoo-2.7
+
+Targets
+-------
+
+Not all targets are sub-directoies mind you!
+
+Sections that have a '@' or '#' as the starting letter are treated as target(@) and target query(#).
+
+Previously we have created [precompiled] section and invoked the mor command to download it. Real life
+is seldom this simple.
+
+Usually we are in a situation where the pre-compiled binaries are different for different architectures
+and platforms.
+
+	; packages.ini
+	[precompiled-macos]
+	libfoo-2.7=https://example.com/macos/precompiled.zip
+
+	[precompiled-linux]
+	libfoo-2.7=https://example.com/linux/precompiled.zip
+
+In that case we can define a target query with '#',
+
+	; packages.ini
+	[#lib]
+	match=k-v
+	paths=precompiled-$platform download
+
+	; requirements.ini
+	[@lib]
+	libfoo=2.7
+
+The $platform in the above can be passed to mor as,
+
+	mor -Dplatform=linux @lib
+
+Variable
+--------
+
+mor treats any word that starts with '$' as variable and tries to expand it.
+
+Variables in mor has a specific rule and follows the following regex,
+
+	([a-z][A-z])*[0-9][a-z]
+
+Specials
+--------
+$ - use to deference a variable
+
+
+Example
+-------
+	; packages.ini
+	[$]
+	github=https://github.com
+	select=k-v
+	/=out/.sysroot
+
+	[folder/]
+	libfoo-2.7=$github/foo/libfoo/releases/download/v26.1/foo-26.1-osx-universal_binary.zip
+	libfoo-git-2.7=$github/foo/libfoo.git
+
+	; requirements.ini
+	[$]
+	>[]=packages.ini
+	@[]=@lib @build
+
+	[@lib]
+	libfoo=2.7
+
+	# when using apple-darwin, use @lib
+	[@lib:x86_64-apple-darwin]
+	libfoo-git=2.7
+
+Bugs/Feature
+------------
+- Deferencing a $variable second time is disabled. This is for simplicity/security.
+
+- Currently it is not possible to null a variable with -D in Windows.
+
+	mor -Dvar= download
+
+The above will silently assign 'download' to $var.
+This is a bug with how the cmd process arguments. Use -Dvar="" instead.
+
+Credits
+-------
+The graphics is a derivative of "butler" by jgs.
