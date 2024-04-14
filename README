@@ -9,42 +9,57 @@ mor
 mor(pheus) is tool that simplifies dependency management the right way.
 Some might even say it is a red-pill way of dependency management.
 
-mor searches for requirements.ini file in the current folder, and uses it's content to
-download files.
+mor searches for requirements.ini file in the current folder, and uses it's
+content to download files.
 
 GOALS
 -----
 * Should work standalone
 * Cross-platform
-* Tiny - .cmd on windows, .sh on *NIX
+* Tiny - mor.cmd for windows, mor.sh for *NIX
 
-Section
--------
-mor uses [sections] of the .ini file to setup targets and subdirectories
+Config File
+------------
+mor uses .ini files as config files and can be given to mor with -c flag.
+When no flags are given, it searches for requirements.ini in the current
+working directory.
 
-Sections in mor are the names of the sub-directories
+In a mor config file, the [sections] represent a directory or target.
+The key=value pair under the [section] are the files to download in that
+current directory.
+
+[$] is a special section that is discussed in 'Variables' below.
+
+	; requirements.ini
+	[$]
+	/=out
 
 	[precompiled]
-	libfoo-2.7=https://example.com/awavauatush/libfoo.git
-
-The result of this is the following,
+	libfoo-2.7=https://example.com/awavauatush/libfoo.zip
+	libbar-3.5=https://example.com/awavauatush/libbar.zip
+	...
 
 	$ mor precompiled
-	$ ls precompiled
-	libfoo-2.7
+	$ tree out/
+	precompile
+	|--libbar-3.5.zip
+	|--libbar-3.5/
+	|--libfoo-2.7.zip
+	|--libfoo-2.7/
 
 Targets
 -------
 
-Not all targets are sub-directoies mind you!
+Not all sections create sub-directoies mind you!
 
-Sections that have a '@' or '#' as the starting letter are treated as target(@) and target query(#).
+Sections that have a '@' or '#' as the starting letter are treated as target(@)
+and target query(#).
 
-Previously we have created [precompiled] section and invoked the mor command to download it. Real life
-is seldom this simple.
+Previously we have created [precompiled] section and invoked the mor command to
+download it. Real life is seldom this simple.
 
-Usually we are in a situation where the pre-compiled binaries are different for different architectures
-and platforms.
+Usually we are in a situation where the pre-compiled binaries are different for
+different architectures and platforms.
 
 	; packages.ini
 	[precompiled-macos]
@@ -77,23 +92,15 @@ Variables in mor has a specific rule and follows the following regex,
 
 	([a-z][A-z])*[0-9][a-z]
 
-Specials
---------
-$ - use to deference a variable
+	[$]
+	; the output folder
+	/=outfolder
+	; arbitrary variables
+	github=https://github.com
 
 
 Example
 -------
-	; packages.ini
-	[$]
-	github=https://github.com
-	select=k-v
-	/=out/.sysroot
-
-	[folder/]
-	libfoo-2.7=$github/foo/libfoo/releases/download/v26.1/foo-26.1-osx-universal_binary.zip
-	libfoo-git-2.7=$github/foo/libfoo.git
-
 	; requirements.ini
 	[$]
 	>[]=packages.ini
@@ -106,8 +113,18 @@ Example
 	[@lib:x86_64-apple-darwin]
 	libfoo-git=2.7
 
-Bugs/Feature
-------------
+	; packages.ini
+	[$]
+	github=https://github.com
+	match=k-v
+	/=out/.sysroot
+
+	[folder/]
+	libfoo-2.7=$github/foo/libfoo/releases/download/v26.1/foo-26.1-osx-universal_binary.zip
+	libfoo-git-2.7=$github/foo/libfoo.git
+
+Bugs/Feature/Todo
+-----------------
 - Deferencing a $variable second time is disabled. This is for simplicity/security.
 
 - Currently it is not possible to null a variable with -D in Windows.
@@ -116,6 +133,10 @@ Bugs/Feature
 
 The above will silently assign 'download' to $var.
 This is a bug with how the cmd process arguments. Use -Dvar="" instead.
+
+- TODO Implement variables expansion
+- TODO Add test cases
+- TODO Merge if two section with same names are present
 
 Credits
 -------
