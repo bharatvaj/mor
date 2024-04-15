@@ -18,6 +18,8 @@ GOALS
 * Cross-platform
 * Tiny - mor.cmd for windows, mor.sh for *NIX
 
+NOTE: Check Windows section if you are using the mor.cmd
+
 Config File
 ------------
 mor uses .ini files as config files and can be given to mor with -c flag.
@@ -83,8 +85,8 @@ The $platform in the above can be passed to mor as,
 
 	mor -Dplatform=linux @lib
 
-Variable
---------
+Variables
+---------
 
 mor treats any word that starts with '$' as variable and tries to expand it.
 
@@ -122,6 +124,18 @@ Example
 	[folder/]
 	libfoo-2.7=$github/foo/libfoo/releases/download/v26.1/foo-26.1-osx-universal_binary.zip
 	libfoo-git-2.7=$github/foo/libfoo.git
+
+Windows
+-------
+- bitsadmin.exe is used to download files in Windows as 'curl' is not available in older versions of Windows.
+
+If you face extreme slowness in downloads, it's probably because some other application is using bitsadmin to download something (like Windows Update)
+
+If you are on a hurry, you can do
+
+	C:\Users\Admin> bitsadmin /reset
+
+to clear all downloads and try running mor again.
 
 Bugs/Feature/Todo
 -----------------

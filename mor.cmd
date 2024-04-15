@@ -2,6 +2,7 @@
 setlocal EnableDelayedExpansion
 set mor_version=0.2
 set root_dir=%cd%\out\
+for /f %%a in ('copy /Z "%~dpf0" nul') do set "CR=%%a"
 
 rem default values
 set /a is_logi=0
@@ -84,9 +85,24 @@ goto :eof
 :download_archive
 setlocal
 	echo v [%2] %3
-	bitsadmin /rawreturn /transfer "mor %2" %3 "%1\%2%4" || (
-		echo fatal: Failed while downloading %3
-		exit /b
+	for /f "usebackq" %%i in (`bitsadmin /rawreturn /create "mor:%2"`) do (
+		set job_id=%%i
+		bitsadmin /rawreturn /addfile "%%i" %3 "%~1\%2%4" >>mor.log
+		bitsadmin /setsecurityflags "%%i" 0x0000 >>mor.log
+		bitsadmin /setpriority "%%i" HIGH >>mor.log
+		bitsadmin /setnoprogresstimout "%%i" 30 >>mor.log
+		bitsadmin /resume "%%i"  >>mor.log
+	:mor_download_start
+		for /f %%j in ('bitsadmin /info %job_id% ^| findstr TRANSFERRED') do (
+			goto :mor_download_end
+		)
+		for /f %%b in ('bitsadmin /rawreturn /getbytestransferred "%job_id%"') do (
+			<nul set /p"=%%b!CR!"
+		)
+		timeout /t 2 >nul
+		goto :mor_download_start
+	:mor_download_end
+		bitsadmin /rawreturn /complete "%job_id%" >>mor.log
 	)
 endlocal
 goto :eof
