@@ -1,4 +1,0 @@
-mor v0.2
---------
-- Handle urls with '&'
-- Add support for extraction using 'tar' (available in windows 10 by default)

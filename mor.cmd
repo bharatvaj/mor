@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableDelayedExpansion
 set mor_version=0.2
-set root_dir=%cd%\out\
+set root_dir=%cd%\out
 for /f %%a in ('copy /Z "%~dpf0" nul') do set "CR=%%a"
 
 rem default values
@@ -49,6 +49,7 @@ for /f "usebackq delims=: tokens=1,*" %%l in ( `findstr /n /v ^; %~1` ) do (
 
 for /f "usebackq delims==[ tokens=1,*" %%l in (`set [`) do (
 	call :prime_download %%l %%~m 
+	if %ERRORLEVEL% equ 1 exit /b %ERRORLEVEL%
 )
 endlocal
 goto :eof
@@ -65,7 +66,9 @@ for /f %%a in ("%targets%") do (
 		:key_value
 		if "%~1" == "" goto :eof
 		for %%i in (%2) do set ext=%%~xi
-		call :download_archive !current_target_dir! %1 %2 !ext!
+		call :download_archive !current_target_dir! %1 %2 !ext! || (
+			exit /b %ERRORLEVEL%
+		)
 		call :unzip_archive !current_target_dir! %1 !ext!
 		shift
 		shift
@@ -75,14 +78,14 @@ for /f %%a in ("%targets%") do (
 endlocal
 goto :eof
 
-:unzip_archive
+:unzip_archive <download_dir> <file_name> <file_extension>
 setlocal
-	echo x [%2]
+	echo ^| [%2%3] %~1\
 	tar xzf "%1\%2%3" -C %1
 endlocal
 goto :eof
 
-:download_archive
+:download_archive <download_dir> <file_name> <url> <file_extension>
 setlocal
 	echo v [%2] %3
 	for /f "usebackq" %%i in (`bitsadmin /rawreturn /create "mor:%2"`) do (
@@ -93,14 +96,42 @@ setlocal
 		bitsadmin /setnoprogresstimout "%%i" 30 >>mor.log
 		bitsadmin /resume "%%i"  >>mor.log
 	:mor_download_start
-		for /f %%j in ('bitsadmin /info %job_id% ^| findstr TRANSFERRED') do (
+		if "%job_id%" == "" (
+			timeout /t 2 >nul
+			goto :mor_download_start
+		)
+		for /f %%f in ('bitsadmin /rawreturn /getstate %job_id%') do (
+			set dstate=%%f
+		)
+		goto :BITS_%dstate% || (
+			goto :BITS_TRANSFERRING
+		)
+
+		:BITS_CANCELED
+		:BITS_SUSPENDED
+		:BITS_TRANSIENT_ERROR
+		:BITS_ERROR
+		:BITS_Unable
+			bitsadmin /rawreturn /cancel %job_id% >>mor.log
+			setlocal DisableDelayedExpansion
+			echo ! Error
+			exit /b 1
+		goto :eof
+		:BITS_TRANSFERRING
+		:BITS_CONNECTING
+			for /f %%b in ('bitsadmin /rawreturn /getbytestransferred "%job_id%"') do (
+				<nul set /p"=%%b!CR!"
+			)
+		:BITS_CONNECTING
+		:BITS_ACKNOWLEDGED
+		:BITS_QUEUED
+		:BITS_Wait
+		:BITS_Wait2
+		:BITS_ERWait
+			timeout /t 1 >nul
+			goto:mor_download_start
+		:BITS_TRANSFERRED
 			goto :mor_download_end
-		)
-		for /f %%b in ('bitsadmin /rawreturn /getbytestransferred "%job_id%"') do (
-			<nul set /p"=%%b!CR!"
-		)
-		timeout /t 2 >nul
-		goto :mor_download_start
 	:mor_download_end
 		bitsadmin /rawreturn /complete "%job_id%" >>mor.log
 	)
@@ -135,7 +166,7 @@ if "%~1" == "-v" (
 	echo mor: invalid argument '-'
 ) else (
 	set targets=%~1
-	echo %targets%
+	echo !targets!:
 )
 if "%arg:~0,1%" == "=" echo "= command"
 
@@ -143,7 +174,9 @@ shift
 goto parse
 :main_continue
 call :read_ini "%config_file%"
+if %ERRORLEVEL% equ 1 exit /b %ERRORLEVEL%
 endlocal
 goto :eof
 
 endlocal
+:mor_end_program

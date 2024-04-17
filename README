@@ -12,13 +12,16 @@ Some might even say it is a red-pill way of dependency management.
 mor searches for requirements.ini file in the current folder, and uses it's
 content to download files.
 
-GOALS
+Goals
 -----
 * Should work standalone
 * Cross-platform
 * Tiny - mor.cmd for windows, mor.sh for *NIX
 
-NOTE: Check Windows section if you are using the mor.cmd
+Note
+----
+- Read the FAQ section
+- Check the Windows section below if you're using mor.cmd
 
 Config File
 ------------
@@ -100,6 +103,14 @@ Variables in mor has a specific rule and follows the following regex,
 	; arbitrary variables
 	github=https://github.com
 
+Status Messages
+---------------
+Mor uses the following symbols to denote the status to the user,
+
+v - Download
+| - Archive Extraction
+g - Git
+! - Error
 
 Example
 -------
@@ -151,6 +162,19 @@ This is a bug with how the cmd process arguments. Use -Dvar="" instead.
 - TODO Implement variables expansion
 - TODO Add test cases
 - TODO Merge if two section with same names are present
+
+FAQ
+---
+> Why the weird symbols ($/, $<, $>) instead of simple clean $root, $include, etc in [$]?
+I wanted mor to be as language agnostic as possible and I wanted the core variables to be
+ASCII clean. This is also the reason why the status messages are mostly made up of symbols.
+
+> Where are the damn CHANGELOGs?
+For the complete changelog,
+        git notes show v0.2~1..
+
+For a specific version,
+        git notes show v0.2
 
 Credits
 -------
