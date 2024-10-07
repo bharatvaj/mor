@@ -1,12 +1,13 @@
 @echo off
 setlocal EnableDelayedExpansion
-set mor_version=0.2
+set mor_version=0.4
 set root_dir=%cd%\out
 for /f %%a in ('copy /Z "%~dpf0" nul') do set "CR=%%a"
 
 rem default values
 set /a is_logi=0
 set config_file=requirements.ini
+set MOR_EXTS_TAR=.tar.gz,.tgz,.zip
 
 if "%~1" == "" goto print_usage
 goto :main
@@ -48,8 +49,8 @@ for /f "usebackq delims=: tokens=1,*" %%l in ( `findstr /n /v ^; %~1` ) do (
 )
 
 for /f "usebackq delims==[ tokens=1,*" %%l in (`set [`) do (
-	call :prime_download %%l %%~m 
-	if %ERRORLEVEL% equ 1 exit /b %ERRORLEVEL%
+	call :prime_download %%l %%~m
+	if ERRORLEVEL 1 exit /b %ERRORLEVEL%
 )
 endlocal
 goto :eof
@@ -66,10 +67,34 @@ for /f %%a in ("%targets%") do (
 		:key_value
 		if "%~1" == "" goto :eof
 		for %%i in (%2) do set ext=%%~xi
-		call :download_archive !current_target_dir! %1 %2 !ext! || (
+		where /q curl
+		if ERRORLEVEL 1 (
+			call :download_archive !current_target_dir! %1 %2 !ext! || (
+				exit /b %ERRORLEVEL%
+			)
+		) else (
+			call :download_archive_curl !current_target_dir! %1 %2 !ext! || (
+				exit /b %ERRORLEVEL%
+			)
+		)
+
+		if ERRORLEVEL 1 (
+			echo ^^^! Error
 			exit /b %ERRORLEVEL%
 		)
-		call :unzip_archive !current_target_dir! %1 !ext!
+
+		for %%x in (%MOR_EXTS_TAR%) do (
+			if "!ext!"=="%%x" (
+				call :unzip_archive !current_target_dir! %1 !ext!
+				if ERRORLEVEL 1 (
+					echo ^^^! Error
+					exit /b %ERRORLEVEL%
+				)
+				goto :MOR_AFTER_EXTRACT
+			)
+		)
+
+		:MOR_AFTER_EXTRACT
 		shift
 		shift
 		goto :key_value
@@ -80,9 +105,21 @@ goto :eof
 
 :unzip_archive <download_dir> <file_name> <file_extension>
 setlocal
-	echo ^| [%2%3] %~1\
-	tar xzf "%1\%2%3" -C %1
+	echo ^| [%~2%~3] %~1\
+	tar xzf "%~1\%~2%~3" -C "%~1"
+	exit /b %ERRORLEVEL%
 endlocal
+goto :eof
+
+:download_archive_curl <download_dir> <file_name> <url> <file_extension>
+setlocal
+	echo v [%2] %3
+	curl -Lf "%~3" -o "%~1\%~2%~4" 2>>mor.log
+	if ERRORLEVEL 1 (
+		echo ^^^! Error
+		exit /b %ERRORLEVEL%
+	)
+	endlocal
 goto :eof
 
 :download_archive <download_dir> <file_name> <url> <file_extension>
@@ -93,7 +130,7 @@ setlocal
 		bitsadmin /rawreturn /addfile "%%i" %3 "%~1\%2%4" >>mor.log
 		bitsadmin /setsecurityflags "%%i" 0x0000 >>mor.log
 		bitsadmin /setpriority "%%i" HIGH >>mor.log
-		bitsadmin /setnoprogresstimout "%%i" 30 >>mor.log
+		bitsadmin /setnoprogresstimeout "%%i" 30 >>mor.log
 		bitsadmin /resume "%%i"  >>mor.log
 	:mor_download_start
 		if "%job_id%" == "" (
@@ -114,7 +151,7 @@ setlocal
 		:BITS_Unable
 			bitsadmin /rawreturn /cancel %job_id% >>mor.log
 			setlocal DisableDelayedExpansion
-			echo ! Error
+			echo ^^^! Error
 			exit /b 1
 		goto :eof
 		:BITS_TRANSFERRING
@@ -174,7 +211,7 @@ shift
 goto parse
 :main_continue
 call :read_ini "%config_file%"
-if %ERRORLEVEL% equ 1 exit /b %ERRORLEVEL%
+if ERRORLEVEL 1 exit /b %ERRORLEVEL%
 endlocal
 goto :eof
 
