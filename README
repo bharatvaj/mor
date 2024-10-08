@@ -110,6 +110,7 @@ Mor uses the following symbols to denote the status to the user,
 v - Download
 | - Archive Extraction
 g - Git
+> - Info
 ! - Error
 
 Example

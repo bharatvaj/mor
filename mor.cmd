@@ -1,6 +1,6 @@
 @echo off
 setlocal
-set mor_version=0.5
+set mor_version=0.6
 set root_dir=%cd%\out
 for /f %%a in ('copy /Z "%~dpf0" nul') do set "CR=%%a"
 
@@ -46,25 +46,32 @@ setlocal EnableDelayedExpansion
 :MOR_TARGETS_START
 	for /f "tokens=1*" %%a in ("%wtargets%") do (
 		set target=%%~a
-		echo !target!:
 
+		set [!target![ 2>NUL >NUL
+		if ERRORLEVEL 1 (
+			echo ^> Cannot find target '%%~a'
+			exit /b 1
+		)
+
+		echo !target!:
 		for /f "usebackq tokens=1,2* delims=[]=" %%l in (`set  [!target![`) do (
 			if "!target:~0,1!"=="#" (
-				echo Target definitions (i.e #targets) cannot be invoked
+				echo ^> Target definitions ^(i.e #targets^) cannot be invoked
+				exit /b 1
 			) else if "!target:~0,1!"=="@" (
 				set section=%%~l
 				set section=!section:~1!
 				call :parse_target !section! %%~m %%~n
 			) else (
 				call :prime_download %%~l %%~m %%~n
-				if ERRORLEVEL 1 exit /b %ERRORLEVEL%
+				if ERRORLEVEL 1 exit /b !ERRORLEVEL!
 			)
 		)
 
 		set wtargets=%%b
-		if not "!wtargets"=="" goto :MOR_TARGETS_START
+		if not [!wtargets!] == [] goto :MOR_TARGETS_START
 	)
-endlocal
+endlocal DisableDelayedExpansion
 goto :eof
 
 :parse_target <section> <target_definition> <value>
@@ -75,11 +82,11 @@ setlocal EnableDelayedExpansion
 	for /f "usebackq tokens=1* delims= " %%a in ('!wsections!') do (
 		for /f "usebackq tokens=1,2,3* delims=[]=" %%e in (`set  [%%a[`) do (
 			if "%%~f"=="%~2-%~3" (
-				call :prime_download %%e %%~f %%~g
+				call :prime_download %%e %%~f %%~g || exit /b %ERRORLEVEL%
 			)
 		)
 		set wsections=%%b
-		if not "%%b"=="" goto :MOR_PARSE_TARGET_START
+		if not [%%b] == [] goto :MOR_PARSE_TARGET_START
 	)
 endlocal DisableDelayedExpansion
 goto :eof
@@ -97,27 +104,17 @@ setlocal EnableDelayedExpansion
 	for %%i in (%2) do set ext=%%~xi
 	where /q curl
 	if ERRORLEVEL 1 (
-		call :download_archive !current_target_dir! %1 %2 !ext! || (
-			exit /b %ERRORLEVEL%
-		)
+		call :download_archive !current_target_dir! %1 %2 !ext!
+		if ERRORLEVEL 1 exit /b !ERRORLEVEL!
 	) else (
-		call :download_archive_curl !current_target_dir! %1 %2 !ext! || (
-			exit /b %ERRORLEVEL%
-		)
-	)
-
-	if ERRORLEVEL 1 (
-		echo ^^^! Error
-		exit /b %ERRORLEVEL%
+		call :download_archive_curl !current_target_dir! %1 %2 !ext!
+		if ERRORLEVEL 1 exit /b !ERRORLEVEL!
 	)
 
 	for %%x in (%MOR_EXTS_TAR%) do (
 		if "!ext!"=="%%x" (
 			call :unzip_archive !current_target_dir! %1 !ext!
-			if ERRORLEVEL 1 (
-				echo ^^^! Error
-				exit /b %ERRORLEVEL%
-			)
+			if ERRORLEVEL 1 exit /b %ERRORLEVEL%
 			goto :MOR_AFTER_EXTRACT
 		)
 	)
@@ -141,10 +138,7 @@ goto :eof
 setlocal
 	echo v [%2] %3
 	curl -Lf "%~3" -o "%~1\%~2%~4" 2>>mor.log
-	if ERRORLEVEL 1 (
-		echo ^^^! Error
-		exit /b %ERRORLEVEL%
-	)
+	exit /b %ERRORLEVEL%
 endlocal
 goto :eof
 
@@ -177,7 +171,6 @@ setlocal
 		:BITS_Unable
 			bitsadmin /rawreturn /cancel %job_id% >>mor.log
 			setlocal DisableDelayedExpansion
-			echo ^^^! Error
 			exit /b 1
 		goto :eof
 		:BITS_TRANSFERRING
@@ -202,7 +195,7 @@ endlocal
 goto :eof
 
 :main
-setlocal
+setlocal EnableDelayedExpansion
 :parse
 set arg=%~1
 if "%~1" == "" goto :MOR_MAIN_CONTINUE
@@ -236,8 +229,11 @@ shift
 goto :parse
 :MOR_MAIN_CONTINUE
 call :read_ini "%config_file%"
-if ERRORLEVEL 1 exit /b %ERRORLEVEL%
-endlocal
+if ERRORLEVEL 1 (
+	echo ^^^! Error
+	exit /b !ERRORLEVEL!
+)
+endlocal DisableDelayedExpansion
 goto :eof
 
 endlocal
