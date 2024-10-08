@@ -1,6 +1,6 @@
 @echo off
-setlocal EnableDelayedExpansion
-set mor_version=0.4
+setlocal
+set mor_version=0.5
 set root_dir=%cd%\out
 for /f %%a in ('copy /Z "%~dpf0" nul') do set "CR=%%a"
 
@@ -9,97 +9,123 @@ set /a is_logi=0
 set config_file=requirements.ini
 set MOR_EXTS_TAR=.tar.gz,.tgz,.zip
 
-if "%~1" == "" goto print_usage
+if "%~1" == "" if not exist %config_file% goto print_usage
 goto :main
 
 :logi
-if %is_logi% equ 1 echo %*
+	if %is_logi% equ 1 echo %*
 goto :eof
 
 :print_usage
-echo Usage: mor [ -c requirements.ini] [-d] [-Dvar1=value1 ...] [[@]target1, ...]
+	echo Usage: mor [ -c requirements.ini] [-d] [-Dvar1=value1 ...] [[@]target1, ...]
 goto :eof
 
 :read_ini <config_file.ini>
-rem uses zero-space width character as a field separator
 setlocal EnableDelayedExpansion
-set /a section_count=0
-set current_section=[
+	set /a section_count=0
+	set current_section=[
 
-rem locally remove env variables starting with '['
-set [ 2>nul && for /f "usebackq delims== tokens=1" %%l in ( `set [` ) do (
-	set %%l=
-)
+	rem locally remove env variables starting with '['
+	set [ 2>nul && for /f "usebackq delims== tokens=1" %%l in ( `set [` ) do (
+		set %%l=
+	)
 
-for /f "usebackq delims=: tokens=1,*" %%l in ( `findstr /n /v ^; %~1` ) do (
-	for /f "usebackq delims==] tokens=1,*" %%a in ( '%%~m' ) do (
-		call :logi actual: %%m
-		set key=%%~a
-		if "!key:~0,1!" == "[" (
-			set current_section=%%a
-			set %%a= 
-			call :logi section set: !current_section!
+	for /f "eol=; usebackq delims==] tokens=1,*" %%a in (%~1) do (
+		set tok=%%~a
+		if "!tok:~0,1!" == "[" (
+			set current_section=!tok!
+			call :logi #!current_section!
 		) else (
-			for /f "usebackq delims== tokens=1,*" %%t in (`set !current_section!`) do (
-				set !current_section!=%%u %%a "%%b" 
-				call :logi set !current_section!=%%u %%a "%%b" 
-			)
+			set key=!current_section![!tok!]
+			set !key!=%%~b
+			call :logi # 	[!tok!] "%%~b"
 		)
 	)
-)
 
-for /f "usebackq delims==[ tokens=1,*" %%l in (`set [`) do (
-	call :prime_download %%l %%~m
-	if ERRORLEVEL 1 exit /b %ERRORLEVEL%
-)
+	set wtargets=%targets%
+:MOR_TARGETS_START
+	for /f "tokens=1*" %%a in ("%wtargets%") do (
+		set target=%%~a
+		echo !target!:
+
+		for /f "usebackq tokens=1,2* delims=[]=" %%l in (`set  [!target![`) do (
+			if "!target:~0,1!"=="#" (
+				echo Target definitions (i.e #targets) cannot be invoked
+			) else if "!target:~0,1!"=="@" (
+				set section=%%~l
+				set section=!section:~1!
+				call :parse_target !section! %%~m %%~n
+			) else (
+				call :prime_download %%~l %%~m %%~n
+				if ERRORLEVEL 1 exit /b %ERRORLEVEL%
+			)
+		)
+
+		set wtargets=%%b
+		if not "!wtargets"=="" goto :MOR_TARGETS_START
+	)
 endlocal
 goto :eof
 
-:prime_download
+:parse_target <section> <target_definition> <value>
 setlocal EnableDelayedExpansion
-set target=%1
-shift
-for /f %%a in ("%targets%") do (
-	if "!target!" == "%%a" (
-		set current_target_dir="%root_dir%\%%a"
-		call :logi Current Target Dir: !current_target_dir!
-		if not exist "!current_target_dir!" mkdir "!current_target_dir!"
-		:key_value
-		if "%~1" == "" goto :eof
-		for %%i in (%2) do set ext=%%~xi
-		where /q curl
-		if ERRORLEVEL 1 (
-			call :download_archive !current_target_dir! %1 %2 !ext! || (
-				exit /b %ERRORLEVEL%
-			)
-		) else (
-			call :download_archive_curl !current_target_dir! %1 %2 !ext! || (
-				exit /b %ERRORLEVEL%
+	set section=%1
+	set wsections=![#%section%[/]!
+:MOR_PARSE_TARGET_START
+	for /f "usebackq tokens=1* delims= " %%a in ('!wsections!') do (
+		for /f "usebackq tokens=1,2,3* delims=[]=" %%e in (`set  [%%a[`) do (
+			if "%%~f"=="%~2-%~3" (
+				call :prime_download %%e %%~f %%~g
 			)
 		)
+		set wsections=%%b
+		if not "%%b"=="" goto :MOR_PARSE_TARGET_START
+	)
+endlocal DisableDelayedExpansion
+goto :eof
 
-		if ERRORLEVEL 1 (
-			echo ^^^! Error
+
+:prime_download <section> <target> <url>
+setlocal EnableDelayedExpansion
+	set current_target_dir="%root_dir%\%1"
+	shift
+	call :logi Current Target Dir: !current_target_dir!
+	if not exist "!current_target_dir!" mkdir "!current_target_dir!"
+	:key_value
+	if "%~1" == "" goto :eof
+	rem TODO Check if this for loop is really necessary
+	for %%i in (%2) do set ext=%%~xi
+	where /q curl
+	if ERRORLEVEL 1 (
+		call :download_archive !current_target_dir! %1 %2 !ext! || (
 			exit /b %ERRORLEVEL%
 		)
-
-		for %%x in (%MOR_EXTS_TAR%) do (
-			if "!ext!"=="%%x" (
-				call :unzip_archive !current_target_dir! %1 !ext!
-				if ERRORLEVEL 1 (
-					echo ^^^! Error
-					exit /b %ERRORLEVEL%
-				)
-				goto :MOR_AFTER_EXTRACT
-			)
+	) else (
+		call :download_archive_curl !current_target_dir! %1 %2 !ext! || (
+			exit /b %ERRORLEVEL%
 		)
-
-		:MOR_AFTER_EXTRACT
-		shift
-		shift
-		goto :key_value
 	)
-)
+
+	if ERRORLEVEL 1 (
+		echo ^^^! Error
+		exit /b %ERRORLEVEL%
+	)
+
+	for %%x in (%MOR_EXTS_TAR%) do (
+		if "!ext!"=="%%x" (
+			call :unzip_archive !current_target_dir! %1 !ext!
+			if ERRORLEVEL 1 (
+				echo ^^^! Error
+				exit /b %ERRORLEVEL%
+			)
+			goto :MOR_AFTER_EXTRACT
+		)
+	)
+
+	:MOR_AFTER_EXTRACT
+	shift
+	shift
+	goto :key_value
 endlocal
 goto :eof
 
@@ -119,7 +145,7 @@ setlocal
 		echo ^^^! Error
 		exit /b %ERRORLEVEL%
 	)
-	endlocal
+endlocal
 goto :eof
 
 :download_archive <download_dir> <file_name> <url> <file_extension>
@@ -179,7 +205,7 @@ goto :eof
 setlocal
 :parse
 set arg=%~1
-if "%~1" == "" goto :main_continue
+if "%~1" == "" goto :MOR_MAIN_CONTINUE
 if "%~1" == "-v" (
 	echo mor v%mor_version%
 	goto :eof
@@ -202,18 +228,16 @@ if "%~1" == "-v" (
 ) else if "%arg%" == "-" (
 	echo mor: invalid argument '-'
 ) else (
-	set targets=%~1
-	echo !targets!:
+	set targets=%targets% %~1
 )
 if "%arg:~0,1%" == "=" echo "= command"
 
 shift
-goto parse
-:main_continue
+goto :parse
+:MOR_MAIN_CONTINUE
 call :read_ini "%config_file%"
 if ERRORLEVEL 1 exit /b %ERRORLEVEL%
 endlocal
 goto :eof
 
 endlocal
-:mor_end_program
