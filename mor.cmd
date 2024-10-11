@@ -62,6 +62,7 @@ setlocal EnableDelayedExpansion
 				set section=%%~l
 				set section=!section:~1!
 				call :parse_target !section! %%~m %%~n
+				if ERRORLEVEL 1 exit /b !ERRORLEVEL!
 			) else (
 				call :prime_download %%~l %%~m %%~n
 				if ERRORLEVEL 1 exit /b !ERRORLEVEL!
@@ -80,6 +81,11 @@ setlocal EnableDelayedExpansion
 	set wsections=![#%section%[/]!
 :MOR_PARSE_TARGET_START
 	for /f "usebackq tokens=1* delims= " %%a in ('!wsections!') do (
+		set [%%a[ 2>NUL >NULL
+		if ERRORLEVEL 1 (
+			echo ^> Cannot find target '%%~a'
+			exit /b 1
+		)
 		for /f "usebackq tokens=1,2,3* delims=[]=" %%e in (`set  [%%a[`) do (
 			if "%%~f"=="%~2-%~3" (
 				call :prime_download %%e %%~f %%~g || exit /b %ERRORLEVEL%
@@ -90,7 +96,6 @@ setlocal EnableDelayedExpansion
 	)
 endlocal DisableDelayedExpansion
 goto :eof
-
 
 :prime_download <section> <target> <url>
 setlocal EnableDelayedExpansion
