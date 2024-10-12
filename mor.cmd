@@ -1,6 +1,6 @@
 @echo off
 setlocal
-set mor_version=0.6
+set mor_version=0.7
 set root_dir=%cd%\out
 for /f %%a in ('copy /Z "%~dpf0" nul') do set "CR=%%a"
 
@@ -32,13 +32,30 @@ setlocal EnableDelayedExpansion
 
 	for /f "eol=; usebackq delims==] tokens=1,*" %%a in (%~1) do (
 		set tok=%%~a
+		set val=%%~b
 		if "!tok:~0,1!" == "[" (
 			set current_section=!tok!
 			call :logi #!current_section!
 		) else (
-			set key=!current_section![!tok!]
-			set !key!=%%~b
-			call :logi # 	[!tok!] "%%~b"
+			set MOR_V_ 2>NUL >NUL
+			if not ERRORLEVEL 1 (
+				for /f "usebackq delims== tokens=1*" %%s in (`set MOR_V_`) do (
+					set varname=%%s
+					set varname=!varname:MOR_V_=!
+					call set val=%%val:$!varname!=%%t%%
+				)
+			)
+			if "!current_section:~1,1!" == "$" (
+				if "!tok!"=="/" (
+					set root_dir=!val!
+				) else (
+					set MOR_V_!tok!=!val!
+				)
+			) else (
+				set key=!current_section![!tok!]
+				set !key!=!val!
+				call :logi # 	[!tok!] "!val!"
+			)
 		)
 	)
 
@@ -107,11 +124,11 @@ goto :eof
 
 :prime_download <section> <target> <url>
 setlocal EnableDelayedExpansion
-	set current_target_dir="%root_dir%\%1"
+	set current_target_dir="!root_dir!\%1"
 	shift
 	call :logi Current Target Dir: !current_target_dir!
 	if not exist "!current_target_dir!" mkdir "!current_target_dir!"
-	:key_value
+	:MOR_KEY_VAULE
 	if "%~1" == "" goto :eof
 	rem TODO Check if this for loop is really necessary
 	for %%i in (%2) do set ext=%%~xi
@@ -136,7 +153,7 @@ setlocal EnableDelayedExpansion
 	:MOR_AFTER_EXTRACT
 	shift
 	shift
-	goto :key_value
+	goto :MOR_KEY_VAULE
 endlocal
 goto :eof
 
@@ -166,10 +183,10 @@ setlocal
 		bitsadmin /setpriority "%%i" HIGH >>mor.log
 		bitsadmin /setnoprogresstimeout "%%i" 30 >>mor.log
 		bitsadmin /resume "%%i"  >>mor.log
-	:mor_download_start
+	:MOR_DOWNLOAD_START
 		if "%job_id%" == "" (
 			timeout /t 2 >nul
-			goto :mor_download_start
+			goto :MOR_DOWNLOAD_START
 		)
 		for /f %%f in ('bitsadmin /rawreturn /getstate %job_id%') do (
 			set dstate=%%f
@@ -199,10 +216,9 @@ setlocal
 		:BITS_Wait2
 		:BITS_ERWait
 			timeout /t 1 >nul
-			goto:mor_download_start
+			goto:MOR_DOWNLOAD_START
 		:BITS_TRANSFERRED
-			goto :mor_download_end
-	:mor_download_end
+
 		bitsadmin /rawreturn /complete "%job_id%" >>mor.log
 	)
 endlocal

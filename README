@@ -101,7 +101,7 @@ Variables in mor has a specific rule and follows the following regex,
 	; the output folder
 	/=outfolder
 	; arbitrary variables
-	github=https://github.com
+	git=https://git.example.com
 
 Status Messages
 ---------------
@@ -129,28 +129,29 @@ Example
 
 	; packages.ini
 	[$]
-	github=https://github.com
+	git=https://git.example.com
 	match=k-v
 	/=out/.sysroot
 
 	[folder/]
-	libfoo-2.7=$github/foo/libfoo/releases/download/v26.1/foo-26.1-osx-universal_binary.zip
+	libfoo-2.7=$git/releases/libfoo/releases/v26.1/foo-26.1-osx-universal.zip
 	libfoo-git-2.7=$github/foo/libfoo.git
 
 Windows
 -------
-- curl is the preferred downloader for windows, but if it is missing, mor defaults to bitsadmin.exe which is available in older versions of Windows.
+- curl is the preferred downloader for windows, but if it is missing, mor
+defaults to bitsadmin.exe which is available in older versions of Windows.
 
-If you face extreme slowness in downloads when using bitsadmin, it's probably because some other application is using it to download something (like Windows Update).If you are on a hurry, you can do
+If you face extreme slowness in downloads when using bitsadmin, it's probably
+because some other application is using it to download
+something (like Windows Update).If you are on a hurry, you can do
 
 	C:\Users\Admin> bitsadmin /reset
 
 to clear all downloads and try running mor again.
 
-Bugs/Feature/Todo
------------------
-- Deferencing a $variable second time is disabled. This is for simplicity/security.
-
+Bugs
+----
 - Currently it is not possible to null a variable with -D in Windows.
 
 	mor -Dvar= download
@@ -158,15 +159,18 @@ Bugs/Feature/Todo
 The above will silently assign 'download' to $var.
 This is a bug with how the cmd process arguments. Use -Dvar="" instead.
 
-- TODO Implement variables expansion
-- TODO Add test cases
-- TODO Merge if two section with same names are present
+- It is currently not possible to use a '$something' directly in a URL if a
+variable named 'something' is defined in '$' section
+
+- The varable expansion is not really ([a-z][A-z])*[0-9][a-z].
 
 FAQ
 ---
-> Why the weird symbols ($/, $<, $>) instead of simple clean $root, $include, etc in [$]?
-I wanted mor to be as language agnostic as possible and I wanted the core variables to be
-ASCII clean. This is also the reason why the status messages are mostly made up of symbols.
+> Why the weird symbols ($/, $<, $>) instead of simple clean $root, $include,
+etc in [$]?
+I wanted mor to be as language agnostic as possible and I wanted the core
+variables to be ASCII clean. This is also the reason why the status messages
+are mostly made up of symbols.
 
 > Where are the damn CHANGELOGs?
 For the complete changelog,
