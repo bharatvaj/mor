@@ -81,29 +81,27 @@ setlocal EnableDelayedExpansion
 	set wsections=![#%section%[/]!
 :MOR_PARSE_TARGET_START
 	for /f "usebackq tokens=1* delims= " %%a in ('!wsections!') do (
-		set [%%a[ 2>NUL >NULL
+		set [%%a[ 2>NUL >NUL
 		if ERRORLEVEL 1 (
 			echo ^> Cannot find target '%%~a'
 			exit /b 1
 		)
+
 		for /f "usebackq tokens=1,2,3* delims=[]=" %%e in (`set  [%%a[`) do (
 			if "%%~f"=="%~2-%~3" (
 				if not defined %%~f_done (
 					set %%~f_done=1
 					call :prime_download %%e %%~f %%~g || goto :eof
+					exit /b 0
 				)
 			)
 		)
 
-		for /f "usebackq tokens=1,2,3* delims=[]=" %%e in (`set  [%%a[`) do (
-			if not defined %%~f_done (
-				echo ^> Cannot find key '%%~f'
-				exit /b 1
-			)
-		)
 		set wsections=%%b
 		if not [%%b] == [] goto :MOR_PARSE_TARGET_START
 	)
+	echo ^> Cannot find key '%~2-%~3'
+	exit /b 1
 endlocal DisableDelayedExpansion
 goto :eof
 
