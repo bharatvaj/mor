@@ -88,7 +88,17 @@ setlocal EnableDelayedExpansion
 		)
 		for /f "usebackq tokens=1,2,3* delims=[]=" %%e in (`set  [%%a[`) do (
 			if "%%~f"=="%~2-%~3" (
-				call :prime_download %%e %%~f %%~g || exit /b %ERRORLEVEL%
+				if not defined %%~f_done (
+					set %%~f_done=1
+					call :prime_download %%e %%~f %%~g || goto :eof
+				)
+			)
+		)
+
+		for /f "usebackq tokens=1,2,3* delims=[]=" %%e in (`set  [%%a[`) do (
+			if not defined %%~f_done (
+				echo ^> Cannot find key '%%~f'
+				exit /b 1
 			)
 		)
 		set wsections=%%b
@@ -116,10 +126,11 @@ setlocal EnableDelayedExpansion
 		if ERRORLEVEL 1 exit /b !ERRORLEVEL!
 	)
 
+
 	for %%x in (%MOR_EXTS_TAR%) do (
 		if "!ext!"=="%%x" (
 			call :unzip_archive !current_target_dir! %1 !ext!
-			if ERRORLEVEL 1 exit /b %ERRORLEVEL%
+			if ERRORLEVEL 1 exit /b !ERRORLEVEL!
 			goto :MOR_AFTER_EXTRACT
 		)
 	)

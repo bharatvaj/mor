@@ -139,11 +139,9 @@ Example
 
 Windows
 -------
-- bitsadmin.exe is used to download files in Windows as 'curl' is not available in older versions of Windows.
+- curl is the preferred downloader for windows, but if it is missing, mor defaults to bitsadmin.exe which is available in older versions of Windows.
 
-If you face extreme slowness in downloads, it's probably because some other application is using bitsadmin to download something (like Windows Update)
-
-If you are on a hurry, you can do
+If you face extreme slowness in downloads when using bitsadmin, it's probably because some other application is using it to download something (like Windows Update).If you are on a hurry, you can do
 
 	C:\Users\Admin> bitsadmin /reset
 
